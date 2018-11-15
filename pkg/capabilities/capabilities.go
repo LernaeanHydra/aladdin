@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors.
+Copyright 2014 The Kubernetes Authors All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -46,21 +46,20 @@ type PrivilegedSources struct {
 	HostIPCSources []string
 }
 
-var capInstance struct {
-	once         sync.Once
-	lock         sync.Mutex
-	capabilities *Capabilities
-}
+// TODO: Clean these up into a singleton
+var once sync.Once
+var lock sync.Mutex
+var capabilities *Capabilities
 
 // Initialize the capability set.  This can only be done once per binary, subsequent calls are ignored.
 func Initialize(c Capabilities) {
 	// Only do this once
-	capInstance.once.Do(func() {
-		capInstance.capabilities = &c
+	once.Do(func() {
+		capabilities = &c
 	})
 }
 
-// Setup the capability set.  It wraps Initialize for improving usability.
+// Setup the capability set.  It wraps Initialize for improving usibility.
 func Setup(allowPrivileged bool, privilegedSources PrivilegedSources, perConnectionBytesPerSec int64) {
 	Initialize(Capabilities{
 		AllowPrivileged:                        allowPrivileged,
@@ -69,19 +68,19 @@ func Setup(allowPrivileged bool, privilegedSources PrivilegedSources, perConnect
 	})
 }
 
-// SetForTests sets capabilities for tests.  Convenience method for testing.  This should only be called from tests.
+// SetCapabilitiesForTests.  Convenience method for testing.  This should only be called from tests.
 func SetForTests(c Capabilities) {
-	capInstance.lock.Lock()
-	defer capInstance.lock.Unlock()
-	capInstance.capabilities = &c
+	lock.Lock()
+	defer lock.Unlock()
+	capabilities = &c
 }
 
 // Returns a read-only copy of the system capabilities.
 func Get() Capabilities {
-	capInstance.lock.Lock()
-	defer capInstance.lock.Unlock()
+	lock.Lock()
+	defer lock.Unlock()
 	// This check prevents clobbering of capabilities that might've been set via SetForTests
-	if capInstance.capabilities == nil {
+	if capabilities == nil {
 		Initialize(Capabilities{
 			AllowPrivileged: false,
 			PrivilegedSources: PrivilegedSources{
@@ -91,5 +90,5 @@ func Get() Capabilities {
 			},
 		})
 	}
-	return *capInstance.capabilities
+	return *capabilities
 }

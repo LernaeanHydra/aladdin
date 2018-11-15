@@ -42,7 +42,7 @@ func main() {
 	pflag.CommandLine.SetNormalizeFunc(utilflag.WordSepNormalizeFunc)
 	pflag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 	// utilflag.InitFlags()
-	logs.InitLogs()
+	logs.InitLogs() // 初始化日志设置 5s一次
 	defer logs.FlushLogs()
 
 	if err := command.Execute(); err != nil {

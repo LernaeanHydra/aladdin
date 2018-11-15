@@ -278,6 +278,7 @@ func (sched *Scheduler) Config() *factory.Config {
 
 // schedule implements the scheduling algorithm and returns the suggested host.
 func (sched *Scheduler) schedule(pod *v1.Pod) (string, error) {
+	// host, err := sched.config.Algorithm.Schedule(pod, sched.config.NodeLister)
 	host, err := sched.config.Algorithm.Schedule(pod, sched.config.NodeLister)
 	if err != nil {
 		pod = pod.DeepCopy()
