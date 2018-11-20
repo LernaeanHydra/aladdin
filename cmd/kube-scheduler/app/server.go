@@ -87,7 +87,7 @@ through the API as necessary.`,
 			}
 		},
 	}
-
+	fmt.Println("cmd creating successfully")
 	opts.AddFlags(cmd.Flags())
 	cmd.MarkFlagFilename("config", "yaml", "yml", "json")
 
@@ -145,7 +145,7 @@ func run(cmd *cobra.Command, args []string, opts *options.Options) error {
 	if utilfeature.DefaultFeatureGate.Enabled(features.VolumeScheduling) {
 		storageClassInformer = c.InformerFactory.Storage().V1().StorageClasses()
 	}
-
+	fmt.Println("begin creating scheduler")
 	// Create the scheduler.
 	sched, err := scheduler.New(c.Client,
 		c.InformerFactory.Core().V1().Nodes(),
@@ -197,6 +197,7 @@ func run(cmd *cobra.Command, args []string, opts *options.Options) error {
 		}
 	}
 
+	fmt.Println("informer begin running")
 	// Start all informers.
 	go cc.PodInformer.Informer().Run(stopCh)
 	cc.InformerFactory.Start(stopCh)
@@ -205,6 +206,7 @@ func run(cmd *cobra.Command, args []string, opts *options.Options) error {
 	cc.InformerFactory.WaitForCacheSync(stopCh)
 	controller.WaitForCacheSync("scheduler", stopCh, cc.PodInformer.Informer().HasSynced)
 
+	fmt.Println("informer sync successfully")
 	// Prepare a reusable run function.
 	run := func(ctx context.Context) {
 		sched.Run()
@@ -241,6 +243,7 @@ func run(cmd *cobra.Command, args []string, opts *options.Options) error {
 	}
 
 	// Leader election is disabled, so run inline until done.
+	fmt.Println("scheduler begin running")
 	run(ctx)
 	return fmt.Errorf("finished without leader elect")
 }

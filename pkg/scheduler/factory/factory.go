@@ -64,6 +64,7 @@ import (
 	internalqueue "k8s.io/kubernetes/pkg/scheduler/internal/queue"
 	"k8s.io/kubernetes/pkg/scheduler/util"
 	"k8s.io/kubernetes/pkg/scheduler/volumebinder"
+	"github.com/asaskevich/govalidator"
 )
 
 const (
@@ -114,7 +115,11 @@ type Config struct {
 	// a pod may take some amount of time and we don't want pods to get
 	// stale while they sit in a channel.
 	NextPod func() *v1.Pod
-
+	// NextPodsList should be a function that blocks until the next pods
+	// is available. We don't use a channel for this, because scheduling
+	// a pod may take some amount of time and we don't want pods to get
+	// stale while they sit in a channel.
+	NextPodsList func() []*v1.Pod
 	// WaitForCacheSync waits for scheduler cache to populate.
 	// It returns true if it was successful, false if the controller should shutdown.
 	WaitForCacheSync func() bool
@@ -1102,6 +1107,7 @@ func (c *configFactory) CreateFromProvider(providerName string) (*Config, error)
 
 // Creates a scheduler from the configuration file
 func (c *configFactory) CreateFromConfig(policy schedulerapi.Policy) (*Config, error) {
+	fmt.Println("CreateFromConfig begins")
 	glog.V(2).Infof("Creating scheduler from configuration: %v", policy)
 
 	// validate the policy configuration
@@ -1167,7 +1173,7 @@ func (c *configFactory) CreateFromConfig(policy schedulerapi.Policy) (*Config, e
 	if policy.AlwaysCheckAllPredicates {
 		c.alwaysCheckAllPredicates = policy.AlwaysCheckAllPredicates
 	}
-
+	fmt.Println("CreateFromKeys begins")
 	return c.CreateFromKeys(predicateKeys, priorityKeys, extenders)
 }
 
@@ -1241,6 +1247,7 @@ func (c *configFactory) CreateFromKeys(predicateKeys, priorityKeys sets.String, 
 	)
 
 	podBackoff := util.CreateDefaultPodBackoff()
+	fmt.Println("initializing &Config")
 	return &Config{
 		SchedulerCache: c.schedulerCache,
 		Ecache:         c.equivalencePodCache,
@@ -1324,13 +1331,30 @@ func (c *configFactory) getPluginArgs() (*PluginFactoryArgs, error) {
 }
 
 func (c *configFactory) getNextPod() *v1.Pod {
+	fmt.Println("getNextPod is running")
 	pod, err := c.podQueue.Pop()
+	fmt.Println("next pod is")
+	fmt.Print(pod.Name)
 	if err == nil {
 		glog.V(4).Infof("About to try and schedule pod %v/%v", pod.Namespace, pod.Name)
 		return pod
 	}
 	glog.Errorf("Error while retrieving next pod from scheduling queue: %v", err)
 	return nil
+}
+
+func (c *configFactory) getNextPodsList() []*v1.Pod {
+	fmt.Println("getNextPodsList is running")
+
+	pods := c.podQueue.WaitingPods()
+	fmt.Println("next pods list size is ")
+	fmt.Print(len(pods))
+	if len(pods) == 0 {
+		glog.V(4).Infof("no schedulable pod in the queue")
+		return nil
+	}
+	glog.Errorf("get schedulable pods list, size is d%", len(pods))
+	return pods
 }
 
 // assignedPod selects pods that are assigned (scheduled and running).

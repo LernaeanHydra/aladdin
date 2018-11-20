@@ -33,7 +33,7 @@ import (
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
-
+	fmt.Println("Scheduler starts")
 	command := app.NewSchedulerCommand()
 
 	// TODO: once we switch everything over to Cobra commands, we can go back to calling

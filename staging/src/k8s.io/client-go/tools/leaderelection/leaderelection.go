@@ -167,7 +167,7 @@ func RunOrDie(ctx context.Context, lec LeaderElectionConfig) {
 }
 
 // GetLeader returns the identity of the last observed leader or returns the empty string if
-// no leader has yet been observed.
+// no leader has yet been observed.2
 func (le *LeaderElector) GetLeader() string {
 	return le.observedRecord.HolderIdentity
 }
