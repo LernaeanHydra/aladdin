@@ -46,6 +46,8 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/util"
 
 	"github.com/golang/glog"
+	"k8s.io/kubernetes/schd/aladdin/cores"
+	"k8s.io/kubernetes/schd/aladdin/solvers"
 )
 
 const (
@@ -592,11 +594,50 @@ func (sched *Scheduler) scheduleAll() {
 	if pods == nil {
 		return
 	}
-	if pod.DeletionTimestamp != nil {
-		sched.config.Recorder.Eventf(pod, v1.EventTypeWarning, "FailedScheduling", "skip schedule deleting pod: %v/%v", pod.Namespace, pod.Name)
-		glog.V(3).Infof("Skip schedule deleting pod: %v/%v", pod.Namespace, pod.Name)
+    shift := 0
+	for index, _ := range pods {
+		if pods[index-shift].DeletionTimestamp != nil {
+			sched.config.Recorder.Eventf(pods[index-shift], v1.EventTypeWarning, "FailedScheduling", "skip schedule deleting pod: %v/%v", pods[index-shift].Namespace, pods[index-shift].Name)
+			glog.V(3).Infof("Skip schedule deleting pod: %v/%v", pods[index-shift].Namespace, pods[index-shift].Name)
+			shift ++
+			pods = append(pods[0:index-shift], pods[index-shift+1:]... )
+		}
+		// todo
+		//glog.V(3).Infof("Attempting to schedule pod: %v/%v", pods[index-shift].Namespace, pods[index-shift].Name)
+	}
+
+	if len(pods) == 0 {
 		return
 	}
+
+	nodes, err := sched.config.NodeLister.List();
+	if err != nil {
+		glog.V(3).Infof("err happens when list availiable nodes : %v", err)
+		fmt.Printf("err happens when list availiable nodes : %v", err)
+	}
+	if len(nodes) == 0 {
+		glog.V(3).Infof("no availiable nodes for scheduling")
+		fmt.Printf("no availiable nodes for scheduling")
+		return
+	}
+
+    // construct graph with pods
+	graph := cores.NewGraph()
+	// todo add vertex and edge with pods
+	err = graph.InitGraphVertex(nodes, pods)
+	if err != nil {
+		return
+	}
+
+	source, _ := graph.GetVertex("source")
+	sink, _ := graph.GetVertex("sink")
+
+	solver := solvers.NewSMaxFlowSolver(graph, *source, *sink, solvers.NewDijkstra())
+
+	solver.MaxFlow()
+
+
+
 
 	glog.V(3).Infof("Attempting to schedule pod: %v/%v", pod.Namespace, pod.Name)
 
