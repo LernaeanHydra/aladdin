@@ -64,7 +64,7 @@ import (
 	internalqueue "k8s.io/kubernetes/pkg/scheduler/internal/queue"
 	"k8s.io/kubernetes/pkg/scheduler/util"
 	"k8s.io/kubernetes/pkg/scheduler/volumebinder"
-	"github.com/asaskevich/govalidator"
+	//"github.com/asaskevich/govalidator"
 )
 
 const (
