@@ -279,6 +279,7 @@ func (sched *Scheduler) Run() {
 		return
 	}
 
+	      
 	go wait.Until(sched.scheduleOne, 0, sched.config.StopEverything)
 }
 
@@ -803,6 +804,10 @@ func (sched *Scheduler) scheduleAll() {
 	//	metrics.PodScheduleErrors.Inc()
 	//	return
 	//}
+
+
+
+
 	//// bind the pod to its host asynchronously (we can do this b/c of the assumption step above).
 	//go func() {
 	//	// Bind volumes first before Pod
