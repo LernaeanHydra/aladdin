@@ -50,7 +50,7 @@ import (
 	"k8s.io/kubernetes/schd/aladdin/solvers"
 	//"github.com/onsi/gomega/matchers/support/goraph/edge"
 	//"encoding/asn1"
-	"strconv"
+	//"strconv"
 )
 
 const (
@@ -153,7 +153,6 @@ func New(client clientset.Interface,
 	recorder record.EventRecorder,
 	schedulerAlgorithmSource kubeschedulerconfig.SchedulerAlgorithmSource,
 	opts ...func(o *schedulerOptions)) (*Scheduler, error) {
-
 	options := defaultSchedulerOptions
 	for _, opt := range opts {
 		opt(&options)
@@ -279,8 +278,7 @@ func (sched *Scheduler) Run() {
 		return
 	}
 
-	      
-	go wait.Until(sched.scheduleOne, 0, sched.config.StopEverything)
+	go wait.Until(sched.scheduleAll, 0, sched.config.StopEverything)
 }
 
 // Config returns scheduler's config pointer. It is exposed for testing purposes.
@@ -595,10 +593,12 @@ func (sched *Scheduler) scheduleAll() {
 	//pods := sched.config.NextPodsList()
 	//pods := make([]*v1.Pod,0)
 	pods := make(map[string]*v1.Pod)
-	for i:=0; i<2; i++{
+	for i:=0; i<3; i++{
 		pod := sched.config.NextPod()
 		pods[pod.Name] = pod
+		fmt.Println("pods["+pod.Name+"]")
 	}
+
 	fmt.Println("begin get next pod successfully")
 	// pod could be nil when schedulerQueue is closed
 	if pods == nil {
@@ -642,21 +642,83 @@ func (sched *Scheduler) scheduleAll() {
 	source, _ := graph.GetVertex("source")
 	sink, _ := graph.GetVertex("sink")
 
+	graph.PrintGragh()
+
 	solver := solvers.NewSMaxFlowSolver(graph, *source, *sink, solvers.NewDijkstra())
 
 	flow := solver.MaxFlow()
-	for _, path := range flow.GetPaths(){
-		element_front := path.GetEdges().Front()
-		edge_front := element_front.Value.(cores.Edge)
-		podName := edge_front.GetTo().GetName()
-		fmt.Println("_____________"+podName)
+	// 解析所有的路径，把反悔的抵消掉
+	var bindMap  = make(map[string]string)//taskName - nodeName
+	for _ , path := range flow.GetPaths() {
+		if path.GetEdges().Len() == 3 {
+
+			element_front := path.GetEdges().Front()
+			edge_front := element_front.Value.(cores.Edge)
+			podName := edge_front.GetTo().GetName()
+
+			element_back := path.GetEdges().Back()
+			edge_back := element_back.Value.(cores.Edge)
+			suggestedHost := edge_back.GetFrom().GetName()
+			bindMap[podName] = suggestedHost
+		} else if path.GetEdges().Len() == 4 {
+			index := 0
+			var podAddName string
+			var podDeleteName string
+			var nodeName string
+			for edge := path.GetEdges().Front(); edge != nil; edge = edge.Next() {
+
+				if index == 1 {
+					edgeValue := edge.Value.(cores.Edge)
+					podAddName = edgeValue.GetFrom().GetName()
+					nodeName = edgeValue.GetTo().GetName()
+				}
+				if index == 2 {
+					edgeValue := edge.Value.(cores.Edge)
+					podDeleteName = edgeValue.GetFrom().GetName()
+					break
+				}
+				index ++
+			}
+			delete(bindMap, podDeleteName)
+			bindMap[podAddName] = nodeName
+		} else if path.GetEdges().Len() == 5 {
+			index := 0
+			var podAddName string
+			var podPrempName string
+			var nodeName string
+			var nodePrempName string
+			for edge := path.GetEdges().Front(); edge != nil; edge = edge.Next() {
+
+				if index == 1 {
+					edgeValue := edge.Value.(cores.Edge)
+					podAddName = edgeValue.GetFrom().GetName()
+					nodeName = edgeValue.GetTo().GetName()
+				}
+				if index == 3 {
+					edgeValue := edge.Value.(cores.Edge)
+					podPrempName = edgeValue.GetFrom().GetName()
+					nodePrempName = edgeValue.GetTo().GetName()
+					break
+				}
+				index ++
+			}
+			bindMap[podPrempName] = nodePrempName
+			bindMap[podAddName] = nodeName
+		} else { // 不支持
+			panic("don't support other type")
+		}
+
+		fmt.Println("--开始更新 bindMap--")
+		fmt.Println(path.GoString())
+		for key, value := range bindMap {
+			fmt.Println(key + " : "+value)
+		}
+		fmt.Println("--结束更新 bindMap--")
+	}
+
+	for podName , suggestedHost := range bindMap {
+		fmt.Println("schedule pod "+podName+" to "+suggestedHost)
 		pod := pods[podName]
-		fmt.Println("--------------------"+strconv.FormatBool(pod == nil))
-		element_back := path.GetEdges().Back()
-		edge_back := element_back.Value.(cores.Edge)
-		suggestedHost := edge_back.GetFrom().GetName()
-
-
 
 		start := time.Now()
 		fmt.Println("begin scheduling pod successfully "+suggestedHost)
@@ -804,10 +866,6 @@ func (sched *Scheduler) scheduleAll() {
 	//	metrics.PodScheduleErrors.Inc()
 	//	return
 	//}
-
-
-
-
 	//// bind the pod to its host asynchronously (we can do this b/c of the assumption step above).
 	//go func() {
 	//	// Bind volumes first before Pod
