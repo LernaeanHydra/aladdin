@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: b-t1
+spec:
+  completions: 1
+  parallelism: 1
+  template:
+    metadata:
+      name: b-t1
+    spec:
+      nodeSelector:
+        affinity: affinity
+      containers:
+      - name: b-t1
+        image: firmament/libhdfs3
+        resources:
+          requests:
+            memory: "10Mi"
+            cpu: "5"
+          limits:
+            memory: "12Mi"
+            cpu: "5"
+        command: ["/bin/sh", "-c", "/cpu_spin 600"]
+      restartPolicy: Never
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: a-t2
+spec:
+  completions: 1
+  parallelism: 1
+  template:
+    metadata:
+      name: a-t2
+    spec:
+      nodeSelector: 
+        type: all
+      containers:
+      - name: a-t2
+        image: firmament/libhdfs3
+        resources:
+          requests:
+            memory: "10Mi"
+            cpu: "5"
+          limits:
+            memory: "12Mi"
+            cpu: "5"
+        command: ["/bin/sh", "-c", "/cpu_spin 600"]
+      restartPolicy: Never

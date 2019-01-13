@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: b-t1
+spec:
+  completions: 1
+  parallelism: 1
+  template:
+    metadata:
+      name: b-t1
+      labels:
+        schedulerName: poseidon
+    spec:
+      nodeSelector:
+        affinity: affinity
+      schedulerName: poseidon
+      containers:
+      - name: b-t1
+        image: firmament/libhdfs3
+        resources:
+          requests:
+            memory: "10Mi"
+            cpu: "2"
+          limits:
+            memory: "12Mi"
+            cpu: "2"
+        command: ["/bin/sh", "-c", "/cpu_spin 600"]
+      restartPolicy: Never

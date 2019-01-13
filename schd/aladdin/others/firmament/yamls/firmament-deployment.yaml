@@ -1,0 +1,50 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: firmament-service
+  namespace: kube-system
+spec:
+  selector:
+    scheduler: firmament
+  ports:
+    - protocol: TCP
+      port: 9090
+      targetPort: 9090
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: firmament-scheduler
+  namespace: kube-system
+  labels:
+    scheduler: firmament
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        scheduler: firmament
+    spec:
+      nodeName: slave5
+      containers:
+      - command: [/firmament/build/src/firmament_scheduler, --flagfile=/firmament/config/firmament_scheduler_cpu_mem.cfg]
+        image: huaweifirmament/firmament:latest
+        volumeMounts:
+        - name: sched-config
+          mountPath: /firmament/config/firmament_scheduler.cfg
+          readOnly: true
+        - name: sched-debug
+          mountPath: /tmp/firmament-debug
+          readOnly: false
+        name: firmament-scheduler
+        ports:
+         - containerPort: 9090
+      hostNetwork: true
+      hostPID: false
+      volumes: 
+      - name: sched-config
+        hostPath:
+         path: /firmament/config/firmament_scheduler.cfg
+      - name: sched-debug
+        hostPath:
+         path: /tmp/firmament-debug
