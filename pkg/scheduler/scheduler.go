@@ -593,11 +593,21 @@ func (sched *Scheduler) scheduleAll() {
 	//pods := sched.config.NextPodsList()
 	//pods := make([]*v1.Pod,0)
 	pods := make(map[string]*v1.Pod)
-	for i:=0; i<3; i++{
-		pod := sched.config.NextPod()
+
+
+
+	podList := sched.config.NextPodsList()
+	for _, pod := range podList{
 		pods[pod.Name] = pod
 		fmt.Println("pods["+pod.Name+"]")
 	}
+
+
+	//for i:=0; i<3; i++{
+	//	pod := sched.config.NextPod()
+	//	pods[pod.Name] = pod
+	//	fmt.Println("pods["+pod.Name+"]")
+	//}
 
 	fmt.Println("begin get next pod successfully")
 	// pod could be nil when schedulerQueue is closed
