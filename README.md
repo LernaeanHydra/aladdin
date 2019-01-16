@@ -14,69 +14,90 @@ The project so far is an early stage prototype with max-number tasks scheduling 
 
 ## Trying it Out:
 
-To get the scheduler up and running there are two ways to currently test it out.
+To get the scheduler up and running there are xxx steps to currently test it out.
 
-### Option 1: Running on a live cluster:
+### Running on a live kubernetes cluster
 
-You can test the scheduler by running it inside of a container on the kubernetes master node. You can build the image from `build/Dockerfile` yourself or as described below use our hosted image.
+#### Step 1: 
 
-On the master node pull the image.
+You need to clone this repo, and move to `<RepoPath>/cmd/kube-scheduler/`, and build this repo with command`env GOOS=linux GOARCH=amd64 go build scheduler.go`
 
-```
-docker pull hasbro17/ksched:v0.6
-```
+#### Step 2:
 
-Run the container on the host network, waiting in background mode.
+You can test the scheduler by running it inside of a container on the kubernetes master node. You can build the image from `build/Dockerfile` yourself, before that you need to move excutable scheduler binary file to /build path, then build image with command 
 
-```
-docker run --net="host" --name="ksched" -d hasbro17/ksched:v0.6 tail -f /dev/null
-```
-
-You will need to pause the pre-existing kubernetes scheduler's container before trying to run ksched.
-
-```
-docker pause <container-ID>
+```bash
+docker build -t aladdin-scheduler:1.0 .
+docker --push larryyang/aladdin-scheduler:1.0
 ```
 
-Get a shell into the ksched container.
+#### Step 3:
 
+We created a Deployment configuration file and ran it in an existing Kubernetes cluster, using the Deployment resource rather than creating a Pod resource directly because the Deployment resource can better handle the case of a scheduler running node failure. Here is the Deployment configuration example, saved as the `aladdin-scheduler.yaml` file:
+
+```yaml
+apiVersion: v1
+kind: Deployment
+metadata: 
+ labels:
+  component: scheduler
+  tier: control-plane
+ name: custom-scheduler
+ namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      component: scheduler
+      tier: control-plane
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+creationTimestamp: null
+      labels:
+        component: scheduler
+        tier: control-plane
+      name: aladdin-scheduler
+      namespace: kube-system
+    spec:
+      containers:
+        - command:
+          - /usr/local/bin/aladdin-scheduler
+          - --address=0.0.0.0
+          - --scheduler-name=aladdin-scheduler
+          - --kubeconfig=/etc/kubernetes/scheduler.conf
+          - --leader-elect=false
+          - --port=10253
+          image: aladdin-scheduler:1.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 8
+            httpGet:
+              path: /healthz
+              port: 10253
+              scheme: HTTP
+            initialDelaySeconds: 15
+            timeoutSeconds: 15
+          name: custom-scheduler
+          resources:
+            requests:
+              cpu: 100m
+            volumeMounts:
+              - mountPath: /etc/kubernetes/scheduler.conf 
+                name: kubeconfig
+                readOnly: true
+      hostNetwork: true
+      priorityClassName: system-cluster-critical 
+      volumes:
+        - hostPath:
+            path: /etc/kubernetes/scheduler.conf
+            type: FileOrCreate
+          name: kubeconf
 ```
-docker exec -it ksched /bin/bash
-```
 
-Run the init script to clone and build the scheduler.
+#### Step 4
 
-```
-/root/init.sh
-```
+Create Deployment resource in Kubernetes cluster
 
-There should be two binaries present in the ksched project at `/root/go-workspace/src/github.com/coreos/ksched`
-
-The first `k8sscheduler`, is the scheduler whose flags are specified in `cmd/k8sscheduler/scheduler.go`. Run this binary to start the scheduler.
-
-```
-k8sscheduler -fakeMachines=false
-```
-
-The scheduler should start up and wait for unscheduled pods at this point.
-
-To generate a large number of pod requests you can use the binary `podgen`.
-
-```
-podgen -numPods=<number-of-pods> -image=nginx
-```
-
-### Option 2: Run with Kubernetes API server:
-
-You can test the scheduler without the real cluster by only having the `kube-api` binary running. The setup is a little more involved for this case.
-
-You will need to have the same environment set up as is for the ksched image described by `build/Dockerfile`. Use that as a guide for your setup.
-
-- Setup the [Flowlessly](https://github.com/ICGog/Flowlessly) solver binary in the correct location: `/usr/local/bin/flowlessly/`.
-- Setup the Kubernetes(v1.3) source at the following location in your go workspace: `$GOPATH/src/k8s.io`
-- Get the ksched source: `go get github.com/coreos/ksched` (or from the mirror repo `github.com/hasbro17/ksched-mirror`)
-- Generate the proto files by running `proto/genproto.sh`
-
-`--kubeconfig /Users/mr.xh/go/src/k8s.io/kubernetes/cmd/kube-scheduler/config --leader-elect=false --scheduler-name flow-scheduler`
-
-A scheduler for scheduling with a graph model as a plugin for k8s
+`kubectl create -f aladdin-scheduler.yaml`
