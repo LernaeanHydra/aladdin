@@ -14,9 +14,9 @@ The project so far is an early stage prototype with max-number tasks scheduling 
 
 ## Trying it Out:
 
-To get the scheduler up and running there are xxx steps to currently test it out.
+To get the scheduler up and running there are 2 ways to currently test it out.
 
-### Running on a live kubernetes cluster
+### Running on a live kubernetes cluster in a container
 
 #### Step 1: 
 
@@ -24,7 +24,7 @@ You need to clone this repo, and move to `<RepoPath>/cmd/kube-scheduler/`, and b
 
 #### Step 2:
 
-You can test the scheduler by running it inside of a container on the kubernetes master node. You can build the image from `build/Dockerfile` yourself, before that you need to move excutable scheduler binary file to /build path, then build image with command 
+You can test the scheduler by running it inside of a container on the kubernetes master node. You can build the image from `build/Dockerfile` yourself, before that you need to move excutable scheduler binary file to /build path, then build image with command.
 
 ```bash
 docker build -t aladdin-scheduler:1.0 .
@@ -101,3 +101,28 @@ creationTimestamp: null
 Create Deployment resource in Kubernetes cluster
 
 `kubectl create -f aladdin-scheduler.yaml`
+
+
+
+### Running on a live kubernetes cluster using Goland IDE
+
+#### Step 1: 
+
+You need to clone this repo, and make it a Go Project which means that you need to make upper directories **src/** and **pkg/**. And then you need to make a sub directory **k8s.io/** in **src/** directory move Aladdin project to **k8s.io/** directory, renaming aladdin/ as kubernetes/. After you finish all these, the path of Project should be like this: `<GolandRootPath>/src/k8s.io/kubernetes`
+
+#### Step 2:
+
+Open the repo kubernetes/ in Goland IDE, then add arguments for go build command in Run——>Edit Configurations——>go build——>go build scheduler.go——>Program arguments, the arguments is `--kubeconfig <GolandRootPath>/src/k8s.io/kubernetes/cmd/kube-scheduler/config --leader-elect=false --scheduler-name flow-scheduler`, click OK.
+
+#### Step 3:
+
+You need to replace Config file for `cmd/kube-scheduler/config` using your Kubernetes cluster certifacation file.
+
+#### Step 4:
+
+Add `<Kubernetes master IP address> <domain name in Config file>` in your /etc/hosts file, just like `39.107.241.0 iZ2ze86eplnjdkjfil6oahZ`.
+
+#### Step 5:
+
+Run `cmd/kube-scheduler/schduler.go`
+
